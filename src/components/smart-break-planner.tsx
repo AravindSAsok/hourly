@@ -9,6 +9,7 @@ import {
   formatDuration,
   localDateTimeToEpoch,
   localDayBounds,
+  summarizeDeductibleBreakTime,
   summarizeObservedBreakTime,
   summarizeWorkingTime,
 } from "@/lib/time";
@@ -49,8 +50,9 @@ export function SmartBreakPlanner({ profile, sessions, now }: {
   const today = localDayBounds(currentDate, profile.time_zone);
   const netWorkedMs = summarizeWorkingTime(sessions, today.start, today.end, now);
   const remainingWorkMs = Math.max(0, DAILY_TARGET_MS - netWorkedMs);
-  const breakUsedMs = summarizeObservedBreakTime(sessions, today.start, today.end, now);
-  const remainingBreakAllowanceMs = Math.max(0, DAILY_BREAK_ALLOWANCE_MS - breakUsedMs);
+  const recordedBreakMs = summarizeObservedBreakTime(sessions, today.start, today.end, now);
+  const deductedBreakMs = summarizeDeductibleBreakTime(sessions, today.start, today.end, now);
+  const remainingBreakAllowanceMs = Math.max(0, DAILY_BREAK_ALLOWANCE_MS - deductedBreakMs);
 
   let plannedLeavingAt: number | null = null;
   try {
@@ -115,7 +117,8 @@ export function SmartBreakPlanner({ profile, sessions, now }: {
       <div><span>Net worked</span><strong>{formatDuration(netWorkedMs, true)}</strong></div>
       <div><span>Remaining work</span><strong>{formatDuration(remainingWorkMs, true)}</strong></div>
       <div><span>Daily break allowance</span><strong>{formatDuration(DAILY_BREAK_ALLOWANCE_MS, true)}</strong></div>
-      <div><span>Break time already used</span><strong>{formatDuration(breakUsedMs, true)}</strong></div>
+      <div><span>Total recorded break time</span><strong>{formatDuration(recordedBreakMs, true)}</strong></div>
+      <div><span>Break allowance used</span><strong>{formatDuration(deductedBreakMs, true)}</strong></div>
       <div><span>Remaining break allowance</span><strong>{formatDuration(remainingBreakAllowanceMs, true)}</strong></div>
     </div>
 
@@ -135,6 +138,6 @@ export function SmartBreakPlanner({ profile, sessions, now }: {
       </div>
     </div>
 
-    <p className="planner-footnote">The allowance includes all actual break time, including short paid breaks and an active break. For work totals, breaks under 15 minutes remain paid; at 15 minutes, the full break is provisionally deducted.</p>
+    <p className="planner-footnote">Short breaks under 15 minutes are paid and do not consume the daily break allowance. Completed breaks of 15 minutes or longer deduct their full duration and use that allowance. An active break under 15 minutes does not use the allowance; once it reaches 15 minutes, its full elapsed duration provisionally counts against it until it ends. All break time remains recorded.</p>
   </section>;
 }

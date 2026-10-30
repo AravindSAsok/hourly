@@ -271,6 +271,18 @@ export function summarizeObservedBreakTime(
   }, 0), 0);
 }
 
+/** Returns only break time deducted from work, including an active break once it reaches the threshold. */
+export function summarizeDeductibleBreakTime(
+  sessions: WorkSession[],
+  start: number,
+  end: number,
+  now = Date.now(),
+): number {
+  return sessions.reduce((total, session) => total + deductibleBreakIntervals(session, now).reduce((sessionTotal, interval) => {
+    return sessionTotal + Math.max(0, Math.min(end, interval.end) - Math.max(start, interval.start));
+  }, 0), 0);
+}
+
 export function dailyWorkingTotals(
   sessions: WorkSession[],
   timeZone: string,

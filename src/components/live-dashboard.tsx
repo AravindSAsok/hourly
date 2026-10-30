@@ -108,7 +108,7 @@ export function LiveDashboard({ profile, sessions, initialNow }: {
 
     <section className="panel rule-panel">
       <div className="rule-symbol"><Coffee size={20} /></div>
-      <div><strong>Breaks under 15 minutes count as paid time.</strong><p>Once a break reaches 15 minutes, its full duration is deducted. Short breaks are still recorded with their actual start and end.</p></div>
+      <div><strong>Breaks under 15 minutes count as paid time.</strong><p>They do not consume the daily break allowance. Completed breaks of 15 minutes or longer deduct their full duration and use the allowance; an active break reaching 15 minutes counts provisionally. All breaks remain recorded with their actual start and end.</p></div>
     </section>
 
     <section className="panel recent-panel" aria-labelledby="recent-heading">
