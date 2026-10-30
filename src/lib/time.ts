@@ -257,6 +257,20 @@ export function summarizeWorkingTime(
   }, 0);
 }
 
+/** Returns the actual elapsed time covered by breaks, including an active break provisionally. */
+export function summarizeObservedBreakTime(
+  sessions: WorkSession[],
+  start: number,
+  end: number,
+  now = Date.now(),
+): number {
+  return sessions.reduce((total, session) => total + session.breaks.reduce((sessionTotal, item) => {
+    const breakStart = epoch(item.break_start_at);
+    const breakEnd = item.break_end_at === null ? now : epoch(item.break_end_at);
+    return sessionTotal + Math.max(0, Math.min(end, breakEnd) - Math.max(start, breakStart));
+  }, 0), 0);
+}
+
 export function dailyWorkingTotals(
   sessions: WorkSession[],
   timeZone: string,

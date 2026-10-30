@@ -134,6 +134,23 @@ export async function savePreferencesAction(formData: FormData) {
   redirect("/settings?saved=1");
 }
 
+export async function savePlannedLeavingTimeAction(plannedLeavingTime: string): Promise<{ ok: boolean; message?: string }> {
+  const parsed = z.string().regex(/^(?:[01]\d|2[0-3]):[0-5]\d$/).safeParse(plannedLeavingTime);
+  if (!parsed.success) return { ok: false, message: "Choose a valid leaving time." };
+  const { supabase } = await getProfileAndUser();
+  let error: { message: string } | null = null;
+  try {
+    const result = await supabase.rpc("update_planned_leaving_time", {
+      p_planned_leaving_time: parsed.data,
+    });
+    error = result.error;
+  } catch {
+    return { ok: false, message: "We could not save your leaving time. Please try again." };
+  }
+  if (error) return { ok: false, message: actionError(error) };
+  return { ok: true };
+}
+
 export async function editBreakAction(formData: FormData) {
   const breakId = z.string().uuid().safeParse(field(formData, "break_id"));
   if (!breakId.success) redirect("/history?error=The%20break%20record%20could%20not%20be%20identified.");

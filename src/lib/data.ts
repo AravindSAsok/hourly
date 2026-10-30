@@ -8,6 +8,7 @@ export type Profile = {
   weekly_target_minutes: number;
   week_starts_on: number;
   time_zone: string;
+  planned_leaving_time: string;
 };
 
 export type StoredSession = WorkSession & {

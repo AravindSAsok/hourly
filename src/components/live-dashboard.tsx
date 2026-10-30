@@ -4,8 +4,9 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowRight, Coffee, Play, Timer, TriangleAlert } from "lucide-react";
 import { ClockAction } from "@/components/clock-action";
+import { SmartBreakPlanner } from "@/components/smart-break-planner";
 import type { Profile, StoredSession } from "@/lib/data";
-import { calculateSessionTime, dateKeyForInput, formatDuration, localDayBounds, weekBounds, summarizeWorkingTime } from "@/lib/time";
+import { calculateSessionTime, dateKeyForInput, formatDuration, localDayBounds, weekBounds, summarizeObservedBreakTime, summarizeWorkingTime } from "@/lib/time";
 
 function timeLabel(value: string, timeZone: string) {
   return new Intl.DateTimeFormat("en", { hour: "numeric", minute: "2-digit", timeZone }).format(new Date(value));
@@ -44,11 +45,7 @@ export function LiveDashboard({ profile, sessions, initialNow }: {
   const dayPunchOuts = sessions.flatMap((session) => session.clock_out_at && dateKeyForInput(session.clock_out_at, profile.time_zone) === currentDate ? [session.clock_out_at] : []);
   const firstPunch = dayPunchIns.length ? dayPunchIns.reduce((first, session) => session.clock_in_at < first ? session.clock_in_at : first, dayPunchIns[0].clock_in_at) : null;
   const lastPunch = dayPunchOuts.length ? dayPunchOuts.reduce((last, value) => value > last ? value : last, dayPunchOuts[0]) : null;
-  const observedBreakToday = todaySessions.reduce((total, session) => total + session.breaks.reduce((sum, item) => {
-    const breakStart = new Date(item.break_start_at).getTime();
-    const breakEnd = item.break_end_at ? new Date(item.break_end_at).getTime() : now;
-    return sum + Math.max(0, Math.min(today.end, breakEnd) - Math.max(today.start, breakStart));
-  }, 0), 0);
+  const observedBreakToday = summarizeObservedBreakTime(sessions, today.start, today.end, now);
   const grossToday = todaySessions.reduce((total, session) => {
     const sessionStart = new Date(session.clock_in_at).getTime();
     const sessionEnd = session.clock_out_at ? new Date(session.clock_out_at).getTime() : now;
@@ -90,6 +87,8 @@ export function LiveDashboard({ profile, sessions, initialNow }: {
       <article className="stat-card"><div className="stat-label"><span>This week</span><span className="stat-icon blue"><Play size={16} /></span></div><div className="stat-value">{formatDuration(weekMs)}</div><div className="stat-foot">{formatDuration(Math.max(0, goalMs - weekMs))} to weekly target</div></article>
       <article className="stat-card"><div className="stat-label"><span>Weekly target</span><span className="stat-icon amber"><Coffee size={16} /></span></div><div className="stat-value">{formatDuration(goalMs)}</div><div className="stat-foot">Configured in settings</div></article>
     </section>
+
+    <SmartBreakPlanner profile={profile} sessions={sessions} now={now} />
 
     <section className="panel today-details" aria-labelledby="today-details-heading">
       <div className="panel-heading"><div><div className="eyebrow">TODAY’S SUMMARY</div><h2 id="today-details-heading">Your punches and breaks</h2></div><span className="muted">{todaySessions.length} {todaySessions.length === 1 ? "session" : "sessions"}</span></div>
