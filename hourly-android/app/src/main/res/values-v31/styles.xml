@@ -1,0 +1,13 @@
+<resources>
+    <style name="Theme.Hourly" parent="android:style/Theme.Material.Light.NoActionBar">
+        <item name="android:fontFamily">sans</item>
+        <item name="android:colorAccent">@color/hourly_mint</item>
+        <item name="android:windowBackground">@color/hourly_background</item>
+        <item name="android:statusBarColor">@color/hourly_background</item>
+        <item name="android:navigationBarColor">@color/hourly_background</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:windowLightNavigationBar">true</item>
+        <item name="android:windowSplashScreenBackground">@color/hourly_background</item>
+        <item name="android:windowSplashScreenAnimatedIcon">@drawable/ic_hourly_mark</item>
+    </style>
+</resources>

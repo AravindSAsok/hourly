@@ -1,0 +1,102 @@
+name: Build Hourly Android APK
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      build_release:
+        description: Build a signed release APK when signing secrets are configured
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build Android APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v4
+        with:
+          packages: 'platform-tools platforms;android-36 build-tools;36.0.0'
+
+      - name: Set up Gradle and validate wrapper
+        uses: gradle/actions/setup-gradle@v6
+        with:
+          cache-provider: basic
+
+      - name: Build debug APK
+        working-directory: hourly-android
+        run: |
+          chmod +x ./gradlew
+          ./gradlew --no-daemon assembleDebug
+
+      - name: Verify debug APK
+        run: |
+          ls -lh hourly-android/app/build/outputs/apk/debug/
+          test -s hourly-android/app/build/outputs/apk/debug/app-debug.apk
+
+      - name: Upload debug APK
+        uses: actions/upload-artifact@v7
+        with:
+          name: Hourly-Android-Debug-APK
+          path: hourly-android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Prepare release signing
+        id: release-signing
+        if: ${{ inputs.build_release == true }}
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          if [ -z "$ANDROID_KEYSTORE_BASE64" ] || [ -z "$ANDROID_KEYSTORE_PASSWORD" ] || [ -z "$ANDROID_KEY_ALIAS" ] || [ -z "$ANDROID_KEY_PASSWORD" ]; then
+            echo 'configured=false' >> "$GITHUB_OUTPUT"
+            echo '::notice::Release signing secrets are incomplete; the debug APK was built and the release build was skipped.'
+            exit 0
+          fi
+          printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/hourly-release.jks"
+          test -s "$RUNNER_TEMP/hourly-release.jks"
+          echo 'configured=true' >> "$GITHUB_OUTPUT"
+
+      - name: Build signed release APK
+        if: ${{ steps.release-signing.outputs.configured == 'true' }}
+        working-directory: hourly-android
+        env:
+          ANDROID_KEYSTORE_PATH: ${{ runner.temp }}/hourly-release.jks
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: ./gradlew --no-daemon assembleRelease
+
+      - name: Verify signed release APK
+        if: ${{ steps.release-signing.outputs.configured == 'true' }}
+        run: test -s hourly-android/app/build/outputs/apk/release/app-release.apk
+
+      - name: Upload signed release APK
+        if: ${{ steps.release-signing.outputs.configured == 'true' }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: Hourly-Android-Release-APK
+          path: hourly-android/app/build/outputs/apk/release/app-release.apk
+          if-no-files-found: error
+          retention-days: 30
