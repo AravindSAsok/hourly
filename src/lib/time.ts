@@ -39,6 +39,28 @@ export function epoch(value: string | number | Date): number {
   return parsed;
 }
 
+/** Schedule capacity is separate from break deduction and net-working time. */
+export function calculateScheduleBreakCapacity(
+  firstPunchAt: number | null,
+  plannedLeavingAt: number | null,
+  dailyTargetMs: number,
+): number {
+  if (firstPunchAt === null || plannedLeavingAt === null) return 0;
+  return Math.max(0, plannedLeavingAt - firstPunchAt - dailyTargetMs);
+}
+
+/** All elapsed break time occupies the schedule, including paid breaks. */
+export function calculateRemainingScheduleBreakCapacity(
+  scheduleCapacityMs: number,
+  observedBreakMs: number,
+): number {
+  return Math.max(0, scheduleCapacityMs - observedBreakMs);
+}
+
+export function calculateAdditionalWorkNeededMs(remainingWorkMs: number, timeAvailableMs: number): number {
+  return Math.max(0, remainingWorkMs - timeAvailableMs);
+}
+
 function mergeIntervals(intervals: WorkInterval[]): WorkInterval[] {
   const sorted = intervals.filter((item) => item.end > item.start).sort((a, b) => a.start - b.start);
   const merged: WorkInterval[] = [];

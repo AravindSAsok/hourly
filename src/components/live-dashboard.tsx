@@ -88,7 +88,7 @@ export function LiveDashboard({ profile, sessions, initialNow }: {
       <article className="stat-card"><div className="stat-label"><span>Weekly target</span><span className="stat-icon amber"><Coffee size={16} /></span></div><div className="stat-value">{formatDuration(goalMs)}</div><div className="stat-foot">Configured in settings</div></article>
     </section>
 
-    <SmartBreakPlanner profile={profile} sessions={sessions} now={now} />
+    <SmartBreakPlanner profile={profile} sessions={sessions} firstPunchAt={firstPunch} now={now} />
 
     <section className="panel today-details" aria-labelledby="today-details-heading">
       <div className="panel-heading"><div><div className="eyebrow">TODAY’S SUMMARY</div><h2 id="today-details-heading">Your punches and breaks</h2></div><span className="muted">{todaySessions.length} {todaySessions.length === 1 ? "session" : "sessions"}</span></div>

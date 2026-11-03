@@ -6,6 +6,9 @@ import { savePlannedLeavingTimeAction } from "@/app/actions";
 import type { Profile, StoredSession } from "@/lib/data";
 import {
   dateKeyForInput,
+  calculateAdditionalWorkNeededMs,
+  calculateRemainingScheduleBreakCapacity,
+  calculateScheduleBreakCapacity,
   formatDuration,
   localDateTimeToEpoch,
   localDayBounds,
@@ -15,7 +18,6 @@ import {
 } from "@/lib/time";
 
 const DAILY_TARGET_MS = 8 * 60 * 60 * 1000;
-const DAILY_BREAK_ALLOWANCE_MS = 60 * 60 * 1000;
 
 function timeLabel(value: number, timeZone: string) {
   return new Intl.DateTimeFormat("en", {
@@ -35,9 +37,10 @@ function suggestionLabel(value: number, referenceDate: string, timeZone: string)
   }).format(new Date(value));
 }
 
-export function SmartBreakPlanner({ profile, sessions, now }: {
+export function SmartBreakPlanner({ profile, sessions, firstPunchAt, now }: {
   profile: Profile;
   sessions: StoredSession[];
+  firstPunchAt: string | null;
   now: number;
 }) {
   const [plannedLeavingTime, setPlannedLeavingTime] = useState(profile.planned_leaving_time || "17:30");
@@ -52,7 +55,6 @@ export function SmartBreakPlanner({ profile, sessions, now }: {
   const remainingWorkMs = Math.max(0, DAILY_TARGET_MS - netWorkedMs);
   const recordedBreakMs = summarizeObservedBreakTime(sessions, today.start, today.end, now);
   const deductedBreakMs = summarizeDeductibleBreakTime(sessions, today.start, today.end, now);
-  const remainingBreakAllowanceMs = Math.max(0, DAILY_BREAK_ALLOWANCE_MS - deductedBreakMs);
 
   let plannedLeavingAt: number | null = null;
   try {
@@ -61,11 +63,17 @@ export function SmartBreakPlanner({ profile, sessions, now }: {
     // A selected wall-clock time can be missing on the rare local date when clocks jump forward.
   }
 
+  const scheduleBreakCapacityMs = calculateScheduleBreakCapacity(
+    firstPunchAt === null ? null : new Date(firstPunchAt).getTime(),
+    plannedLeavingAt,
+    DAILY_TARGET_MS,
+  );
+  const remainingScheduleBreakCapacityMs = calculateRemainingScheduleBreakCapacity(scheduleBreakCapacityMs, recordedBreakMs);
   const timeAvailableMs = plannedLeavingAt === null ? 0 : Math.max(0, plannedLeavingAt - now);
-  const additionalWorkNeededMs = Math.max(0, remainingWorkMs - timeAvailableMs);
+  const additionalWorkNeededMs = calculateAdditionalWorkNeededMs(remainingWorkMs, timeAvailableMs);
   const canReachTarget = plannedLeavingAt !== null && additionalWorkNeededMs === 0;
   const maximumAdditionalBreakMs = Math.max(0, Math.min(
-    remainingBreakAllowanceMs,
+    remainingScheduleBreakCapacityMs,
     timeAvailableMs - remainingWorkMs,
   ));
 
@@ -116,10 +124,10 @@ export function SmartBreakPlanner({ profile, sessions, now }: {
       <div><span>Daily work target</span><strong>{formatDuration(DAILY_TARGET_MS, true)}</strong></div>
       <div><span>Net worked</span><strong>{formatDuration(netWorkedMs, true)}</strong></div>
       <div><span>Remaining work</span><strong>{formatDuration(remainingWorkMs, true)}</strong></div>
-      <div><span>Daily break allowance</span><strong>{formatDuration(DAILY_BREAK_ALLOWANCE_MS, true)}</strong></div>
+      <div><span>Schedule break capacity</span><strong>{formatDuration(scheduleBreakCapacityMs, true)}</strong></div>
       <div><span>Total recorded break time</span><strong>{formatDuration(recordedBreakMs, true)}</strong></div>
-      <div><span>Break allowance used</span><strong>{formatDuration(deductedBreakMs, true)}</strong></div>
-      <div><span>Remaining break allowance</span><strong>{formatDuration(remainingBreakAllowanceMs, true)}</strong></div>
+      <div><span>Break time deducted</span><strong>{formatDuration(deductedBreakMs, true)}</strong></div>
+      <div><span>Remaining schedule capacity</span><strong>{formatDuration(remainingScheduleBreakCapacityMs, true)}</strong></div>
     </div>
 
     <div className={`planner-result ${canReachTarget ? "planner-result-ready" : "planner-result-shortfall"}`} aria-live="polite">
@@ -138,6 +146,6 @@ export function SmartBreakPlanner({ profile, sessions, now }: {
       </div>
     </div>
 
-    <p className="planner-footnote">Short breaks under 15 minutes are paid and do not consume the daily break allowance. Completed breaks of 15 minutes or longer deduct their full duration and use that allowance. An active break under 15 minutes does not use the allowance; once it reaches 15 minutes, its full elapsed duration provisionally counts against it until it ends. All break time remains recorded.</p>
+    <p className="planner-footnote">Schedule capacity is based on your first punch-in, planned leaving time, and 8-hour work target. All break time occupies schedule capacity. Break deduction remains separate: breaks under 15 minutes are paid, while breaks of 15 minutes or longer deduct their full duration.</p>
   </section>;
 }
