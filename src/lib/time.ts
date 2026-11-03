@@ -49,12 +49,12 @@ export function calculateScheduleBreakCapacity(
   return Math.max(0, plannedLeavingAt - firstPunchAt - dailyTargetMs);
 }
 
-/** All elapsed break time occupies the schedule, including paid breaks. */
+/** Only qualifying deducted break time reduces the remaining schedule capacity. */
 export function calculateRemainingScheduleBreakCapacity(
   scheduleCapacityMs: number,
-  observedBreakMs: number,
+  deductedBreakMs: number,
 ): number {
-  return Math.max(0, scheduleCapacityMs - observedBreakMs);
+  return Math.max(0, scheduleCapacityMs - deductedBreakMs);
 }
 
 export function calculateAdditionalWorkNeededMs(remainingWorkMs: number, timeAvailableMs: number): number {

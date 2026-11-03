@@ -68,7 +68,7 @@ export function SmartBreakPlanner({ profile, sessions, firstPunchAt, now }: {
     plannedLeavingAt,
     DAILY_TARGET_MS,
   );
-  const remainingScheduleBreakCapacityMs = calculateRemainingScheduleBreakCapacity(scheduleBreakCapacityMs, recordedBreakMs);
+  const remainingScheduleBreakCapacityMs = calculateRemainingScheduleBreakCapacity(scheduleBreakCapacityMs, deductedBreakMs);
   const timeAvailableMs = plannedLeavingAt === null ? 0 : Math.max(0, plannedLeavingAt - now);
   const additionalWorkNeededMs = calculateAdditionalWorkNeededMs(remainingWorkMs, timeAvailableMs);
   const canReachTarget = plannedLeavingAt !== null && additionalWorkNeededMs === 0;
