@@ -2,11 +2,12 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowRight, Coffee, Play, Timer, TriangleAlert } from "lucide-react";
+import { ArrowRight, Coffee, Play, PencilLine, Timer, TriangleAlert } from "lucide-react";
 import { ClockAction } from "@/components/clock-action";
+import { BreakEditForm } from "@/components/break-edit-form";
 import { SmartBreakPlanner } from "@/components/smart-break-planner";
 import type { Profile, StoredSession } from "@/lib/data";
-import { calculateSessionTime, dateKeyForInput, formatDuration, localDayBounds, weekBounds, summarizeObservedBreakTime, summarizeWorkingTime } from "@/lib/time";
+import { calculateSessionTime, dateKeyForInput, formatDateTimeInput, formatDuration, localDayBounds, weekBounds, summarizeObservedBreakTime, summarizeWorkingTime } from "@/lib/time";
 
 function timeLabel(value: string, timeZone: string) {
   return new Intl.DateTimeFormat("en", { hour: "numeric", minute: "2-digit", timeZone }).format(new Date(value));
@@ -18,6 +19,7 @@ export function LiveDashboard({ profile, sessions, initialNow }: {
   initialNow: number;
 }) {
   const [now, setNow] = useState(initialNow);
+  const [editingActiveBreak, setEditingActiveBreak] = useState(false);
   useEffect(() => {
     const baseline = performance.now();
     const timer = window.setInterval(() => setNow(initialNow + performance.now() - baseline), 1000);
@@ -71,9 +73,31 @@ export function LiveDashboard({ profile, sessions, initialNow }: {
         <div className="status-actions">
           {!activeSession && <ClockAction operation="clock-in" label="Punch in" className="button button-primary button-large" />}
           {activeSession && !activeBreak && <ClockAction operation="start-break" label="Start break" className="button button-secondary button-large" />}
-          {activeBreak && <ClockAction operation="end-break" label="End break" className="button button-primary button-large" />}
+          {activeBreak && (
+            <>
+              <ClockAction operation="end-break" label="End break" className="button button-primary button-large" />
+              <button
+                type="button"
+                onClick={() => setEditingActiveBreak((prev) => !prev)}
+                className={`button button-secondary button-small ${editingActiveBreak ? "button-primary" : ""}`}
+              >
+                {editingActiveBreak ? "Cancel correction" : <><PencilLine size={13} /> Edit break</>}
+              </button>
+            </>
+          )}
           {activeSession && <ClockAction operation="clock-out" label="Punch out" className="button button-danger-outline button-large" confirm="Punch out and close this work session? If a break is in progress, it will end now." />}
         </div>
+        {editingActiveBreak && activeBreak && (
+          <section className="panel break-edit-panel" style={{ marginTop: 16 }}>
+            <div className="panel-heading"><div className="eyebrow">CORRECT ACTIVE BREAK</div><h2>Edit break times</h2></div>
+            <p className="muted">Set the break end to the time you actually finished. The work session stays open and your original punch-in is unchanged.</p>
+            <BreakEditForm
+              breakId={activeBreak.id!}
+              startLocal={formatDateTimeInput(activeBreak.break_start_at, profile.time_zone)}
+              endLocal=""
+            />
+          </section>
+        )}
       </div>
       <div className="status-side" aria-hidden="true">
         <div className="timer-orb"><Timer size={34} strokeWidth={1.35} /></div>
