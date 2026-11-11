@@ -183,3 +183,32 @@ export async function editBreakAction(formData: FormData) {
   revalidatePath("/reports");
   redirect("/history?saved=1");
 }
+
+export async function editPunchOutAction(formData: FormData) {
+  const sessionId = z.string().uuid().safeParse(field(formData, "session_id"));
+  if (!sessionId.success) redirect("/history?error=The work session could not be identified.");
+  const clockOutLocal = field(formData, "clock_out_local");
+  const { supabase, profile } = await getProfileAndUser();
+  let clockOutAt: string;
+  try {
+    clockOutAt = new Date(localDateTimeToEpoch(clockOutLocal, profile.time_zone)).toISOString();
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Enter a valid local timestamp.";
+    redirect(`/history?error=${encodeURIComponent(message)}`);
+  }
+  let error: { message: string } | null = null;
+  try {
+    const result = await supabase.rpc("edit_session_punch_out", {
+      p_session_id: sessionId.data,
+      p_clock_out_at: clockOutAt,
+    });
+    error = result.error;
+  } catch {
+    redirect("/history?error=We could not confirm the punch-out correction. Reload history to check the saved timestamp.");
+  }
+  if (error) redirect(`/history?error=${encodeURIComponent(actionError(error))}`);
+  revalidatePath("/dashboard");
+  revalidatePath("/history");
+  revalidatePath("/reports");
+  redirect("/history?saved=1");
+}

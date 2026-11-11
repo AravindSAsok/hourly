@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { AlertCircle, ArrowLeft, ArrowRight, CalendarDays, Clock3, PencilLine } from "lucide-react";
 import { BreakEditForm } from "@/components/break-edit-form";
+import { PunchOutEditForm } from "@/components/punch-out-edit-form";
 import { getHistoryPage, getProfileAndUser } from "@/lib/data";
 import { calculateSessionTime, dateKeyForInput, formatDateTimeInput, formatDuration } from "@/lib/time";
 
@@ -42,6 +43,13 @@ export default async function HistoryPage({ searchParams }: { searchParams: Prom
               <div><span>Net work</span><strong>{formatDuration(result.netWorkMs)}</strong></div>
               <div><span>Deducted breaks</span><strong>{formatDuration(result.deductedBreakMs)}</strong></div>
             </div>
+            {session.clock_out_at && (
+              <details className="edit-punch-out">
+                <summary><PencilLine size={14} /> Edit punch out time</summary>
+                <PunchOutEditForm sessionId={session.id} clockOutLocal={formatDateTimeInput(session.clock_out_at, profile.time_zone)} />
+                <small>Correcting the punch-out time recalculates net working time for this session.</small>
+              </details>
+            )}
             {session.breaks.length > 0 && <div className="break-list"><div className="break-list-title"><Clock3 size={15} /> BREAK RECORDS</div>
               {session.breaks.map((item) => {
                 const duration = Math.max(0, (item.break_end_at ? new Date(item.break_end_at).getTime() : now) - new Date(item.break_start_at).getTime());
@@ -49,7 +57,7 @@ export default async function HistoryPage({ searchParams }: { searchParams: Prom
                 return <div key={item.id} className="break-record">
                   <div className="break-record-summary"><strong>{formatTime(item.break_start_at, profile.time_zone)} – {item.break_end_at ? formatTime(item.break_end_at, profile.time_zone) : "In progress"}</strong><span>{formatDuration(duration, true)} · {item.break_end_at ? (qualifies ? "deducted in full" : "paid working time") : (qualifies ? "provisionally deducted" : "paid time until 15 minutes")}</span></div>
                   {!!item.edits?.length && <div className="break-audit">{item.edits.map((edit, index) => <small key={`${edit.edited_at}-${index}`}>Correction {index + 1}: {formatStamp(edit.previous_break_start_at, profile.time_zone)} – {formatStamp(edit.previous_break_end_at, profile.time_zone)} changed to {formatStamp(edit.new_break_start_at, profile.time_zone)} – {formatStamp(edit.new_break_end_at, profile.time_zone)}</small>)}</div>}
-                  {item.break_end_at && session.clock_out_at && item.id && <details className="edit-break"><summary><PencilLine size={14} /> Edit break times</summary><BreakEditForm breakId={item.id} startLocal={formatDateTimeInput(item.break_start_at, profile.time_zone)} endLocal={formatDateTimeInput(item.break_end_at, profile.time_zone)} />
+                  {item.break_end_at && item.id && <details className="edit-break"><summary><PencilLine size={14} /> Edit break times</summary><BreakEditForm breakId={item.id} startLocal={formatDateTimeInput(item.break_start_at, profile.time_zone)} endLocal={formatDateTimeInput(item.break_end_at, profile.time_zone)} />
                     <small>Each correction keeps the prior timestamps in the audit trail. The break is reclassified from its edited duration.</small></details>}
                 </div>;
               })}
