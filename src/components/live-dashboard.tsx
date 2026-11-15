@@ -22,7 +22,7 @@ function applyOptimisticClockAction(sessions: StoredSession[], operation: string
       user_id: userId,
       clock_in_at: clickedAt,
       clock_out_at: null,
-      status: "working",
+      status: "working" as const,
       manually_edited: false,
       created_at: clickedAt,
       breaks: [],
@@ -34,7 +34,7 @@ function applyOptimisticClockAction(sessions: StoredSession[], operation: string
   if (operation === "start-break") {
     return sessions.map((session) => session.id === active.id ? {
       ...session,
-      status: "on_break",
+      status: "on_break" as const,
       breaks: [...session.breaks, { id: `optimistic-break-${Date.now()}`, break_start_at: clickedAt, break_end_at: null }],
     } : session);
   }
@@ -48,7 +48,7 @@ function applyOptimisticClockAction(sessions: StoredSession[], operation: string
   if (operation === "clock-out") {
     return sessions.map((session) => session.id === active.id ? {
       ...session,
-      status: "completed",
+      status: "completed" as const,
       clock_out_at: clickedAt,
       breaks: session.breaks.map((item) => item.break_end_at === null ? { ...item, break_end_at: clickedAt } : item),
     } : session);
