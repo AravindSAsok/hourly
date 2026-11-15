@@ -1,9 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowRight, Coffee, Play, PencilLine, Timer, TriangleAlert } from "lucide-react";
 import { ClockAction } from "@/components/clock-action";
+import { clockAction } from "@/app/actions";
 import { BreakEditForm } from "@/components/break-edit-form";
 import { SmartBreakPlanner } from "@/components/smart-break-planner";
 import type { Profile, StoredSession } from "@/lib/data";
@@ -13,41 +15,113 @@ function timeLabel(value: string, timeZone: string) {
   return new Intl.DateTimeFormat("en", { hour: "numeric", minute: "2-digit", timeZone }).format(new Date(value));
 }
 
+function applyOptimisticClockAction(sessions: StoredSession[], operation: string, clickedAt: string, userId: string): StoredSession[] {
+  if (operation === "clock-in") {
+    const optimistic: StoredSession = {
+      id: `optimistic-${Date.now()}`,
+      user_id: userId,
+      clock_in_at: clickedAt,
+      clock_out_at: null,
+      status: "working",
+      manually_edited: false,
+      created_at: clickedAt,
+      breaks: [],
+    };
+    return [optimistic, ...sessions];
+  }
+  const active = sessions.find((session) => session.clock_out_at === null);
+  if (!active) return sessions;
+  if (operation === "start-break") {
+    return sessions.map((session) => session.id === active.id ? {
+      ...session,
+      status: "on_break",
+      breaks: [...session.breaks, { id: `optimistic-break-${Date.now()}`, break_start_at: clickedAt, break_end_at: null }],
+    } : session);
+  }
+  if (operation === "end-break") {
+    return sessions.map((session) => session.id === active.id ? {
+      ...session,
+      status: "working",
+      breaks: session.breaks.map((item) => item.break_end_at === null ? { ...item, break_end_at: clickedAt } : item),
+    } : session);
+  }
+  if (operation === "clock-out") {
+    return sessions.map((session) => session.id === active.id ? {
+      ...session,
+      status: "completed",
+      clock_out_at: clickedAt,
+      breaks: session.breaks.map((item) => item.break_end_at === null ? { ...item, break_end_at: clickedAt } : item),
+    } : session);
+  }
+  return sessions;
+}
+
 export function LiveDashboard({ profile, sessions, initialNow }: {
   profile: Profile;
   sessions: StoredSession[];
   initialNow: number;
 }) {
+  const router = useRouter();
   const [now, setNow] = useState(initialNow);
+  const [displaySessions, setDisplaySessions] = useState(sessions);
+  const [clockActionPending, setClockActionPending] = useState(false);
+  const [clockActionError, setClockActionError] = useState<string | null>(null);
   const [editingActiveBreak, setEditingActiveBreak] = useState(false);
+  useEffect(() => setDisplaySessions(sessions), [sessions]);
+  const handleClockAction = async (operation: string, clickedAt: string) => {
+    if (clockActionPending) return;
+    const previousSessions = displaySessions;
+    setClockActionPending(true);
+    setClockActionError(null);
+    setDisplaySessions(applyOptimisticClockAction(previousSessions, operation, clickedAt, profile.id));
+    const formData = new FormData();
+    formData.set("operation", operation);
+    formData.set("clicked_at", clickedAt);
+    try {
+      const result = await clockAction(formData);
+      if (!result.ok) {
+        setDisplaySessions(previousSessions);
+        setClockActionError(result.message ?? "That action could not be completed. Please try again.");
+        router.refresh();
+      } else {
+        router.refresh();
+      }
+    } catch {
+      setDisplaySessions(previousSessions);
+      setClockActionError("We could not confirm that action. Reloading the saved clock state…");
+      router.refresh();
+    } finally {
+      setClockActionPending(false);
+    }
+  };
   useEffect(() => {
     const baseline = performance.now();
     const timer = window.setInterval(() => setNow(initialNow + performance.now() - baseline), 1000);
     return () => window.clearInterval(timer);
   }, [initialNow]);
 
-  const activeSession = sessions.find((session) => session.clock_out_at === null) ?? null;
+  const activeSession = displaySessions.find((session) => session.clock_out_at === null) ?? null;
   const activeBreak = activeSession?.breaks.find((item) => item.break_end_at === null) ?? null;
   const currentDate = dateKeyForInput(now, profile.time_zone);
   const today = localDayBounds(currentDate, profile.time_zone);
   const week = weekBounds(currentDate, profile.week_starts_on, profile.time_zone);
-  const todayMs = summarizeWorkingTime(sessions, today.start, today.end, now);
-  const weekMs = summarizeWorkingTime(sessions, week.start, week.end, now);
+  const todayMs = summarizeWorkingTime(displaySessions, today.start, today.end, now);
+  const weekMs = summarizeWorkingTime(displaySessions, week.start, week.end, now);
   const goalMs = profile.weekly_target_minutes * 60_000;
   const percent = Math.min(100, Math.round((weekMs / goalMs) * 100));
   const sessionTime = activeSession ? calculateSessionTime(activeSession, now) : null;
   const breakMs = activeBreak ? Math.max(0, now - new Date(activeBreak.break_start_at).getTime()) : 0;
   const sessionHours = activeSession ? Math.max(0, (now - new Date(activeSession.clock_in_at).getTime()) / 3_600_000) : 0;
-  const todaySessions = sessions.filter((session) => {
+  const todaySessions = displaySessions.filter((session) => {
     const sessionStart = new Date(session.clock_in_at).getTime();
     const sessionEnd = session.clock_out_at ? new Date(session.clock_out_at).getTime() : now;
     return sessionStart < today.end && sessionEnd > today.start;
   });
-  const dayPunchIns = sessions.filter((session) => dateKeyForInput(session.clock_in_at, profile.time_zone) === currentDate);
-  const dayPunchOuts = sessions.flatMap((session) => session.clock_out_at && dateKeyForInput(session.clock_out_at, profile.time_zone) === currentDate ? [session.clock_out_at] : []);
+  const dayPunchIns = displaySessions.filter((session) => dateKeyForInput(session.clock_in_at, profile.time_zone) === currentDate);
+  const dayPunchOuts = displaySessions.flatMap((session) => session.clock_out_at && dateKeyForInput(session.clock_out_at, profile.time_zone) === currentDate ? [session.clock_out_at] : []);
   const firstPunch = dayPunchIns.length ? dayPunchIns.reduce((first, session) => session.clock_in_at < first ? session.clock_in_at : first, dayPunchIns[0].clock_in_at) : null;
   const lastPunch = dayPunchOuts.length ? dayPunchOuts.reduce((last, value) => value > last ? value : last, dayPunchOuts[0]) : null;
-  const observedBreakToday = summarizeObservedBreakTime(sessions, today.start, today.end, now);
+  const observedBreakToday = summarizeObservedBreakTime(displaySessions, today.start, today.end, now);
   const grossToday = todaySessions.reduce((total, session) => {
     const sessionStart = new Date(session.clock_in_at).getTime();
     const sessionEnd = session.clock_out_at ? new Date(session.clock_out_at).getTime() : now;
@@ -70,12 +144,13 @@ export function LiveDashboard({ profile, sessions, initialNow }: {
           ? "This break is provisionally deductible. Its final duration is recorded when it ends."
           : "Under 15 minutes, this break is currently counted as paid working time."}</p>}
         {activeSession && sessionHours >= 14 && <p className="long-session-warning"><TriangleAlert size={16} /> This session has been open for over 14 hours. Review it and punch out when appropriate.</p>}
+        {clockActionError && <div className="notice notice-error" role="alert">{clockActionError}</div>}
         <div className="status-actions">
-          {!activeSession && <ClockAction operation="clock-in" label="Punch in" className="button button-primary button-large" />}
-          {activeSession && !activeBreak && <ClockAction operation="start-break" label="Start break" className="button button-secondary button-large" />}
+          {!activeSession && <ClockAction operation="clock-in" label="Punch in" className="button button-primary button-large" onAction={handleClockAction} disabled={clockActionPending} />}
+          {activeSession && !activeBreak && <ClockAction operation="start-break" label="Start break" className="button button-secondary button-large" onAction={handleClockAction} disabled={clockActionPending} />}
           {activeBreak && (
             <>
-              <ClockAction operation="end-break" label="End break" className="button button-primary button-large" />
+              <ClockAction operation="end-break" label="End break" className="button button-primary button-large" onAction={handleClockAction} disabled={clockActionPending} />
               <button
                 type="button"
                 onClick={() => setEditingActiveBreak((prev) => !prev)}
@@ -85,7 +160,7 @@ export function LiveDashboard({ profile, sessions, initialNow }: {
               </button>
             </>
           )}
-          {activeSession && <ClockAction operation="clock-out" label="Punch out" className="button button-danger-outline button-large" confirm="Punch out and close this work session? If a break is in progress, it will end now." />}
+          {activeSession && <ClockAction operation="clock-out" label="Punch out" className="button button-danger-outline button-large" confirm="Punch out and close this work session? If a break is in progress, it will end now." onAction={handleClockAction} disabled={clockActionPending} />}
         </div>
         {editingActiveBreak && activeBreak && (
           <section className="panel break-edit-panel" style={{ marginTop: 16 }}>
@@ -137,8 +212,8 @@ export function LiveDashboard({ profile, sessions, initialNow }: {
 
     <section className="panel recent-panel" aria-labelledby="recent-heading">
       <div className="panel-heading"><div><div className="eyebrow">RECENT ACTIVITY</div><h2 id="recent-heading">Latest sessions</h2></div><Link className="text-link" href="/history">Full history <ArrowRight size={15} /></Link></div>
-      {sessions.length === 0 ? <p className="recent-empty">No sessions yet. Punch in to start your first one.</p> : <div className="recent-list">
-        {sessions.slice(0, 4).map((session) => {
+      {displaySessions.length === 0 ? <p className="recent-empty">No sessions yet. Punch in to start your first one.</p> : <div className="recent-list">
+        {displaySessions.slice(0, 4).map((session) => {
           const result = calculateSessionTime(session, now);
           return <div key={session.id} className="recent-row">
             <span className={`recent-dot ${session.clock_out_at ? "done" : session.status === "on_break" ? "break" : "live"}`} />
