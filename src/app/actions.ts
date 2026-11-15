@@ -84,23 +84,35 @@ export async function signOutAction() {
   redirect("/login");
 }
 
-export async function clockAction(formData: FormData) {
+export async function clockAction(formData: FormData): Promise<{ ok: boolean; message?: string }> {
   const operation = field(formData, "operation");
   const rpcName = operation === "clock-in" ? "clock_in" : operation === "start-break" ? "start_break" : operation === "end-break" ? "end_break" : "clock_out";
-  if (!["clock-in", "start-break", "end-break", "clock-out"].includes(operation)) redirect("/dashboard?error=Invalid%20clock%20action.");
-  const supabase = await createClient();
-  let error: { message: string } | null = null;
-  try {
-    const result = await supabase.rpc(rpcName);
-    error = result.error;
-  } catch {
-    redirect("/dashboard?error=We%20could%20not%20confirm%20that%20clock%20action.%20The%20dashboard%20has%20been%20reloaded%20from%20saved%20data.");
+  if (!["clock-in", "start-break", "end-break", "clock-out"].includes(operation)) {
+    return { ok: false, message: "Invalid clock action." };
   }
-  if (error) redirect(`/dashboard?error=${encodeURIComponent(actionError(error))}`);
-  revalidatePath("/dashboard");
-  revalidatePath("/history");
-  revalidatePath("/reports");
-  redirect("/dashboard");
+  const clickedAt = z.string().datetime({ offset: true }).safeParse(field(formData, "clicked_at"));
+  if (!clickedAt.success) return { ok: false, message: "The click time could not be recorded. Please try again." };
+
+  try {
+    const supabase = await createClient();
+    // New databases persist the exact browser click time. Fall back to the legacy
+    // no-argument RPC until the matching timestamp migration has been applied.
+    let result = await supabase.rpc(rpcName, { p_occurred_at: clickedAt.data });
+    if (result.error && (
+      result.error.code === "PGRST202" ||
+      result.error.code === "42883" ||
+      result.error.message.toLowerCase().includes("could not find the function")
+    )) {
+      result = await supabase.rpc(rpcName);
+    }
+    if (result.error) return { ok: false, message: actionError(result.error) };
+    revalidatePath("/dashboard");
+    revalidatePath("/history");
+    revalidatePath("/reports");
+    return { ok: true };
+  } catch {
+    return { ok: false, message: "We could not confirm that clock action. Your saved time has not been changed; please try again." };
+  }
 }
 
 export async function savePreferencesAction(formData: FormData) {
