@@ -1,9 +1,8 @@
 "use client";
 
-import { clockAction } from "@/app/actions";
 import { ActionButton } from "@/components/action-button";
 
-export function ClockAction({ operation, label, className, confirm }: {
+export function ClockAction({ operation, label, className, confirm, disabled, onAction }: {
   operation: string;
   label: string;
   className: string;
