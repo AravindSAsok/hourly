@@ -1,6 +1,23 @@
+<p align="center"><img src="https://raw.githubusercontent.com/AravindSAsok/hourly/main/public/hourly-mark.svg" width="88" alt="Hourly logo" /></p>
+<p align="center"><strong>A timestamp-first work tracker with precise break accounting.</strong></p>
+<p align="center"><img alt="Next.js" src="https://img.shields.io/badge/Next.js-16-000000?logo=nextdotjs" /> <img alt="React" src="https://img.shields.io/badge/React-19-149ECA?logo=react" /> <img alt="TypeScript" src="https://img.shields.io/badge/TypeScript-5-3178C6?logo=typescript" /> <img alt="Supabase" src="https://img.shields.io/badge/Supabase-Auth%20%2B%20Postgres-3FCF8E?logo=supabase" /> <img alt="Tests" src="https://img.shields.io/badge/Tests-Node%20Test%20Runner-339933?logo=nodedotjs" /></p>
+
 # Hourly
 
 Hourly is a private work-time tracker built with Next.js App Router, TypeScript, Supabase Auth, and PostgreSQL. It records source punch and break timestamps, then derives working time from those timestamps. The dashboard timer updates in the browser; it does not write to the database every second.
+
+## Architecture
+
+~~~mermaid
+flowchart TD
+  U[User] --> UI[Next.js dashboard]
+  UI --> AUTH[Supabase Auth]
+  UI --> API[Server actions / database functions]
+  API --> DB[(PostgreSQL)]
+  DB --> S[Timestamped work sessions and breaks]
+  S --> CALC[Shared time calculation module]
+  CALC --> R[History, reports and CSV export]
+~~~
 
 ## Break rule
 
