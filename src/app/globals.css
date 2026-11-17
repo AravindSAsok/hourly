@@ -384,3 +384,9 @@ code { color: #bdebd2; font-size: .95em; }
   .history-modal { padding: 17px; }
   .history-modal-actions > button, .history-delete-form > button { flex: 1 1 100%; justify-content: center; }
 }
+
+
+.stat-card-link { display: block; color: inherit; text-decoration: none; cursor: pointer; transition: border-color .18s ease, background .18s ease; }
+.stat-card-link:hover { border-color: #3c5549; background: #171d1b; }
+.stat-card-link:focus-visible { outline: 2px solid rgba(52, 211, 153, .55); outline-offset: 3px; }
+.today-edit-hint { display: inline-flex; align-items: center; gap: 4px; margin-left: 5px; color: #789b88; font-size: 9px; font-weight: 500; opacity: .8; }
