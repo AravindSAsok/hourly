@@ -353,3 +353,34 @@ code { color: #bdebd2; font-size: .95em; }
   .day-name span { font-size: 8px; }
   .setting-rule { padding: 17px; }
 }
+
+
+.history-day-trigger { display: grid; width: 100%; grid-template-columns: 38px minmax(180px, 1fr) auto auto auto; align-items: center; gap: 15px; padding: 17px 19px; border: 1px solid var(--border); border-radius: 14px; color: var(--text); background: var(--panel); text-align: left; cursor: pointer; }
+.history-day-trigger:hover { border-color: #536b60; background: #1c2522; }
+.history-day-title, .history-day-stats { display: grid; gap: 4px; }
+.history-day-title strong { font-size: 12px; }
+.history-day-title small, .history-day-stats small { color: var(--muted); font-size: 10px; }
+.history-day-stats { min-width: 74px; }
+.history-day-stats strong { font-size: 12px; font-variant-numeric: tabular-nums; }
+.history-day-open { color: var(--green); font-size: 11px; font-weight: 600; white-space: nowrap; }
+.history-modal-backdrop { position: fixed; z-index: 100; inset: 0; display: grid; place-items: center; padding: 20px; background: rgba(0, 0, 0, .72); }
+.history-modal { display: grid; gap: 17px; width: min(760px, 100%); max-height: min(88vh, 900px); overflow: auto; padding: 22px; border: 1px solid var(--border); border-radius: 16px; background: var(--panel); box-shadow: 0 24px 80px rgba(0, 0, 0, .45); }
+.history-modal-header, .history-modal-subheading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.history-modal-header h2 { margin: 5px 0 0; font-size: 18px; }
+.history-modal-copy { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.6; }
+.history-modal-actions, .history-delete-form { display: flex; flex-wrap: wrap; gap: 10px; }
+.history-modal-subheading strong { font-size: 13px; }
+.history-modal-content { display: grid; gap: 12px; }
+.history-day-sessions { gap: 12px; }
+.history-modal-content .history-card { padding: 15px; }
+.history-delete-warning { padding: 14px; border: 1px solid rgba(248, 113, 113, .25); border-radius: 10px; background: rgba(248, 113, 113, .055); }
+.history-delete-warning strong { color: #ffc1c1; font-size: 13px; }
+.history-delete-warning p { margin: 7px 0 0; color: var(--muted); font-size: 11px; line-height: 1.6; }
+.text-button { padding: 5px; border: 0; color: var(--green); background: transparent; cursor: pointer; font-size: 11px; }
+@media (max-width: 640px) {
+  .history-day-trigger { grid-template-columns: 34px minmax(0, 1fr) auto; gap: 10px; padding: 14px; }
+  .history-day-stats { display: none; }
+  .history-day-open { grid-column: 2 / -1; }
+  .history-modal { padding: 17px; }
+  .history-modal-actions > button, .history-delete-form > button { flex: 1 1 100%; justify-content: center; }
+}

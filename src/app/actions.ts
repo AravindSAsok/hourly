@@ -196,6 +196,27 @@ export async function editBreakAction(formData: FormData) {
   redirect("/history?saved=1");
 }
 
+export async function deleteWorkDayAction(formData: FormData) {
+  const dayKey = z.string().regex(/^\\d{4}-\\d{2}-\\d{2}$/).safeParse(field(formData, "day_key"));
+  if (!dayKey.success) redirect("/history?error=The%20selected%20day%20could%20not%20be%20identified.");
+  const { supabase, profile } = await getProfileAndUser();
+  let error: { message: string } | null = null;
+  try {
+    const result = await supabase.rpc("delete_work_day", {
+      p_day: dayKey.data,
+      p_time_zone: profile.time_zone,
+    });
+    error = result.error;
+  } catch {
+    redirect("/history?error=We%20could%20not%20confirm%20the%20day%20deletion.%20Reload%20history%20to%20check%20the%20saved%20records.");
+  }
+  if (error) redirect(`/history?error=${encodeURIComponent(actionError(error))}`);
+  revalidatePath("/dashboard");
+  revalidatePath("/history");
+  revalidatePath("/reports");
+  redirect("/history?deleted=1");
+}
+
 export async function editPunchOutAction(formData: FormData) {
   const sessionId = z.string().uuid().safeParse(field(formData, "session_id"));
   if (!sessionId.success) redirect("/history?error=The work session could not be identified.");

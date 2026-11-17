@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { AlertCircle, ArrowLeft, ArrowRight, CalendarDays, Clock3, PencilLine } from "lucide-react";
 import { BreakEditForm } from "@/components/break-edit-form";
 import { PunchOutEditForm } from "@/components/punch-out-edit-form";
+import { HistoryDayCard } from "@/components/history-day-card";
 import { getHistoryPage, getProfileAndUser } from "@/lib/data";
 import { calculateSessionTime, dateKeyForInput, formatDateTimeInput, formatDuration } from "@/lib/time";
 
@@ -14,7 +15,7 @@ function formatStamp(value: string, timeZone: string) {
   return new Intl.DateTimeFormat("en", { dateStyle: "medium", timeStyle: "short", timeZone }).format(new Date(value));
 }
 
-export default async function HistoryPage({ searchParams }: { searchParams: Promise<{ error?: string; saved?: string; page?: string }> }) {
+export default async function HistoryPage({ searchParams }: { searchParams: Promise<{ error?: string; saved?: string; deleted?: string; page?: string }> }) {
   const query = await searchParams;
   const parsedPage = Number(query.page ?? 1);
   const page = Number.isInteger(parsedPage) && parsedPage > 0 ? parsedPage : 1;
@@ -23,47 +24,75 @@ export default async function HistoryPage({ searchParams }: { searchParams: Prom
   const pageCount = Math.max(1, Math.ceil(count / 40));
   if (page > pageCount) redirect(`/history?page=${pageCount}`);
   const now = Date.now();
+  const groupedDays = new Map<string, typeof sessions>();
+  for (const session of sessions) {
+    const key = dateKeyForInput(session.clock_in_at, profile.time_zone);
+    const daySessions = groupedDays.get(key) ?? [];
+    daySessions.push(session);
+    groupedDays.set(key, daySessions);
+  }
+  const days = Array.from(groupedDays.entries());
   return <div className="page-stack">
-    <div className="page-heading"><div><div className="eyebrow">YOUR RECORD</div><h1>Work history</h1><p>Recent sessions, original punches, and recorded breaks.</p></div></div>
+    <div className="page-heading"><div><div className="eyebrow">YOUR RECORD</div><h1>Work history</h1><p>Daily sessions, original punches, and recorded breaks.</p></div></div>
     {query.error && <div className="notice notice-error" role="alert"><AlertCircle size={17} />{query.error}</div>}
-    {query.saved && <div className="notice notice-success">Break updated. Session and report totals have been recalculated from its timestamps.</div>}
+    {query.saved && <div className="notice notice-success">Your correction has been saved. Session and report totals have been recalculated from its timestamps.</div>}
+    {query.deleted && <div className="notice notice-success">The selected day and all of its work sessions, breaks, and correction history were deleted.</div>}
     {sessions.length === 0 ? <section className="empty-state"><CalendarDays size={27} /><h2>Your history starts with your first punch</h2><p>Completed sessions will show up here, along with each break’s actual timestamps.</p><Link href="/dashboard" className="button button-primary">Go to dashboard</Link></section> :
-      <section className="history-list" aria-label="Work sessions">
-        {sessions.map((session) => {
-          const result = calculateSessionTime(session, now);
-          const dayKey = dateKeyForInput(session.clock_in_at, profile.time_zone);
-          return <article key={session.id} className="history-card">
-            <div className="history-heading">
-              <div className="history-date"><span className="date-icon"><CalendarDays size={17} /></span><div><strong>{new Intl.DateTimeFormat("en", { dateStyle: "full", timeZone: profile.time_zone }).format(new Date(session.clock_in_at))}</strong><span>{dayKey}</span></div></div>
-              <span className={`session-badge ${session.clock_out_at ? "badge-complete" : session.status === "on_break" ? "badge-break" : "badge-active"}`}>{session.clock_out_at ? "Completed" : session.status === "on_break" ? "On break" : "In progress"}</span>
-            </div>
-            <div className="history-metrics">
-              <div><span>Clock in</span><strong>{formatTime(session.clock_in_at, profile.time_zone)}</strong></div>
-              <div><span>Clock out</span><strong>{session.clock_out_at ? formatTime(session.clock_out_at, profile.time_zone) : "—"}</strong></div>
-              <div><span>Net work</span><strong>{formatDuration(result.netWorkMs)}</strong></div>
-              <div><span>Deducted breaks</span><strong>{formatDuration(result.deductedBreakMs)}</strong></div>
-            </div>
-            {session.clock_out_at && (
-              <details className="edit-punch-out">
-                <summary><PencilLine size={14} /> Edit punch out time</summary>
-                <PunchOutEditForm sessionId={session.id} clockOutLocal={formatDateTimeInput(session.clock_out_at, profile.time_zone)} />
-                <small>Correcting the punch-out time recalculates net working time for this session.</small>
-              </details>
-            )}
-            {session.breaks.length > 0 && <div className="break-list"><div className="break-list-title"><Clock3 size={15} /> BREAK RECORDS</div>
-              {session.breaks.map((item) => {
-                const duration = Math.max(0, (item.break_end_at ? new Date(item.break_end_at).getTime() : now) - new Date(item.break_start_at).getTime());
-                const qualifies = duration >= 15 * 60_000;
-                return <div key={item.id} className="break-record">
-                  <div className="break-record-summary"><strong>{formatTime(item.break_start_at, profile.time_zone)} – {item.break_end_at ? formatTime(item.break_end_at, profile.time_zone) : "In progress"}</strong><span>{formatDuration(duration, true)} · {item.break_end_at ? (qualifies ? "deducted in full" : "paid working time") : (qualifies ? "provisionally deducted" : "paid time until 15 minutes")}</span></div>
-                  {!!item.edits?.length && <div className="break-audit">{item.edits.map((edit, index) => <small key={`${edit.edited_at}-${index}`}>Correction {index + 1}: {formatStamp(edit.previous_break_start_at, profile.time_zone)} – {formatStamp(edit.previous_break_end_at, profile.time_zone)} changed to {formatStamp(edit.new_break_start_at, profile.time_zone)} – {formatStamp(edit.new_break_end_at, profile.time_zone)}</small>)}</div>}
-                  {item.break_end_at && item.id && <details className="edit-break"><summary><PencilLine size={14} /> Edit break times</summary><BreakEditForm breakId={item.id} startLocal={formatDateTimeInput(item.break_start_at, profile.time_zone)} endLocal={formatDateTimeInput(item.break_end_at, profile.time_zone)} />
-                    <small>Each correction keeps the prior timestamps in the audit trail. The break is reclassified from its edited duration.</small></details>}
-                </div>;
+      <section className="history-list" aria-label="Work days">
+        {days.map(([dayKey, daySessions]) => {
+          const dayNetMs = daySessions.reduce((sum, session) => sum + calculateSessionTime(session, now).netWorkMs, 0);
+          const dayDeductedMs = daySessions.reduce((sum, session) => sum + calculateSessionTime(session, now).deductedBreakMs, 0);
+          const breakCount = daySessions.reduce((sum, session) => sum + session.breaks.length, 0);
+          const hasActiveSession = daySessions.some((session) => !session.clock_out_at);
+          const dayLabel = new Intl.DateTimeFormat("en", { dateStyle: "full", timeZone: profile.time_zone }).format(new Date(daySessions[0].clock_in_at));
+          return <HistoryDayCard
+            key={dayKey}
+            dayKey={dayKey}
+            dayLabel={dayLabel}
+            sessionCount={daySessions.length}
+            breakCount={breakCount}
+            netWork={formatDuration(dayNetMs)}
+            deductedBreaks={formatDuration(dayDeductedMs)}
+            hasActiveSession={hasActiveSession}
+          >
+            <div className="history-list history-day-sessions">
+              {daySessions.map((session) => {
+                const result = calculateSessionTime(session, now);
+                return <article key={session.id} className="history-card">
+                  <div className="history-heading">
+                    <div className="history-date"><span className="date-icon"><CalendarDays size={17} /></span><div><strong>Session · {formatTime(session.clock_in_at, profile.time_zone)}</strong><span>{formatTime(session.clock_in_at, profile.time_zone)} – {session.clock_out_at ? formatTime(session.clock_out_at, profile.time_zone) : "In progress"}</span></div></div>
+                    <span className={`session-badge ${session.clock_out_at ? "badge-complete" : session.status === "on_break" ? "badge-break" : "badge-active"}`}>{session.clock_out_at ? "Completed" : session.status === "on_break" ? "On break" : "In progress"}</span>
+                  </div>
+                  <div className="history-metrics">
+                    <div><span>Clock in</span><strong>{formatTime(session.clock_in_at, profile.time_zone)}</strong></div>
+                    <div><span>Clock out</span><strong>{session.clock_out_at ? formatTime(session.clock_out_at, profile.time_zone) : "—"}</strong></div>
+                    <div><span>Net work</span><strong>{formatDuration(result.netWorkMs)}</strong></div>
+                    <div><span>Deducted breaks</span><strong>{formatDuration(result.deductedBreakMs)}</strong></div>
+                  </div>
+                  {session.clock_out_at && (
+                    <details className="edit-punch-out">
+                      <summary><PencilLine size={14} /> Edit punch out time</summary>
+                      <PunchOutEditForm sessionId={session.id} clockOutLocal={formatDateTimeInput(session.clock_out_at, profile.time_zone)} />
+                      <small>Correcting the punch-out time recalculates net working time for this session.</small>
+                    </details>
+                  )}
+                  {session.breaks.length > 0 && <div className="break-list"><div className="break-list-title"><Clock3 size={15} /> BREAK RECORDS</div>
+                    {session.breaks.map((item) => {
+                      const duration = Math.max(0, (item.break_end_at ? new Date(item.break_end_at).getTime() : now) - new Date(item.break_start_at).getTime());
+                      const qualifies = duration >= 15 * 60_000;
+                      return <div key={item.id} className="break-record">
+                        <div className="break-record-summary"><strong>{formatTime(item.break_start_at, profile.time_zone)} – {item.break_end_at ? formatTime(item.break_end_at, profile.time_zone) : "In progress"}</strong><span>{formatDuration(duration, true)} · {item.break_end_at ? (qualifies ? "deducted in full" : "paid working time") : (qualifies ? "provisionally deducted" : "paid time until 15 minutes")}</span></div>
+                        {!!item.edits?.length && <div className="break-audit">{item.edits.map((edit, index) => <small key={`${edit.edited_at}-${index}`}>Correction {index + 1}: {formatStamp(edit.previous_break_start_at, profile.time_zone)} – {formatStamp(edit.previous_break_end_at, profile.time_zone)} changed to {formatStamp(edit.new_break_start_at, profile.time_zone)} – {formatStamp(edit.new_break_end_at, profile.time_zone)}</small>)}</div>}
+                        {item.break_end_at && item.id && <details className="edit-break"><summary><PencilLine size={14} /> Edit break times</summary><BreakEditForm breakId={item.id} startLocal={formatDateTimeInput(item.break_start_at, profile.time_zone)} endLocal={formatDateTimeInput(item.break_end_at, profile.time_zone)} />
+                          <small>Each correction keeps the prior timestamps in the audit trail. The break is reclassified from its edited duration.</small></details>}
+                      </div>;
+                    })}
+                  </div>}
+                  {session.manually_edited && <div className="edited-label">Includes a manual correction</div>}
+                </article>;
               })}
-            </div>}
-            {session.manually_edited && <div className="edited-label">Includes a manual break correction</div>}
-          </article>;
+            </div>
+          </HistoryDayCard>;
         })}
       </section>}
     {count > 40 && <nav className="pagination" aria-label="History pages">
