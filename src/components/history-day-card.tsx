@@ -12,6 +12,7 @@ export function HistoryDayCard({
   netWork,
   deductedBreaks,
   hasActiveSession,
+  autoOpen = false,
   children,
 }: {
   dayKey: string;
@@ -21,9 +22,10 @@ export function HistoryDayCard({
   netWork: string;
   deductedBreaks: string;
   hasActiveSession: boolean;
+  autoOpen?: boolean;
   children: ReactNode;
 }) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(autoOpen);
   const [mode, setMode] = useState<"choose" | "edit" | "delete">("choose");
   const dialogRef = useRef<HTMLDivElement>(null);
 
