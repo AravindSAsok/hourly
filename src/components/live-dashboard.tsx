@@ -182,7 +182,7 @@ export function LiveDashboard({ profile, sessions, initialNow }: {
     </section>
 
     <section className="stat-grid" aria-label="Time summaries">
-      <article className="stat-card"><div className="stat-label"><span>Today</span><span className="stat-icon green"><Timer size={17} /></span></div><div className="stat-value">{formatDuration(todayMs)}</div><div className="stat-foot">Net working time</div></article>
+      <Link href={`/history?day=${currentDate}`} className="stat-card stat-card-link" aria-label="Edit today’s work sessions and breaks"><div className="stat-label"><span>Today <span className="today-edit-hint"><PencilLine size={11} /> Edit</span></span><span className="stat-icon green"><Timer size={17} /></span></div><div className="stat-value">{formatDuration(todayMs)}</div><div className="stat-foot">Net working time</div></Link>
       <article className="stat-card"><div className="stat-label"><span>This week</span><span className="stat-icon blue"><Play size={16} /></span></div><div className="stat-value">{formatDuration(weekMs)}</div><div className="stat-foot">{formatDuration(Math.max(0, goalMs - weekMs))} to weekly target</div></article>
       <article className="stat-card"><div className="stat-label"><span>Weekly target</span><span className="stat-icon amber"><Coffee size={16} /></span></div><div className="stat-value">{formatDuration(goalMs)}</div><div className="stat-foot">Configured in settings</div></article>
     </section>
