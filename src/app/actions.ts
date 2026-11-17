@@ -197,7 +197,7 @@ export async function editBreakAction(formData: FormData) {
 }
 
 export async function deleteWorkDayAction(formData: FormData) {
-  const dayKey = z.string().regex(/^\\d{4}-\\d{2}-\\d{2}$/).safeParse(field(formData, "day_key"));
+  const dayKey = z.string().regex(/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/).safeParse(field(formData, "day_key"));
   if (!dayKey.success) redirect("/history?error=The%20selected%20day%20could%20not%20be%20identified.");
   const { supabase, profile } = await getProfileAndUser();
   let error: { message: string } | null = null;
