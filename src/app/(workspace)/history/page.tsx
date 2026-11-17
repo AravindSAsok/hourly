@@ -15,7 +15,7 @@ function formatStamp(value: string, timeZone: string) {
   return new Intl.DateTimeFormat("en", { dateStyle: "medium", timeStyle: "short", timeZone }).format(new Date(value));
 }
 
-export default async function HistoryPage({ searchParams }: { searchParams: Promise<{ error?: string; saved?: string; deleted?: string; page?: string }> }) {
+export default async function HistoryPage({ searchParams }: { searchParams: Promise<{ error?: string; saved?: string; deleted?: string; page?: string; day?: string }> }) {
   const query = await searchParams;
   const parsedPage = Number(query.page ?? 1);
   const page = Number.isInteger(parsedPage) && parsedPage > 0 ? parsedPage : 1;
@@ -54,6 +54,7 @@ export default async function HistoryPage({ searchParams }: { searchParams: Prom
             netWork={formatDuration(dayNetMs)}
             deductedBreaks={formatDuration(dayDeductedMs)}
             hasActiveSession={hasActiveSession}
+            autoOpen={query.day === dayKey}
           >
             <div className="history-list history-day-sessions">
               {daySessions.map((session) => {
