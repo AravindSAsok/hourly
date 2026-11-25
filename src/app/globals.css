@@ -390,3 +390,13 @@ code { color: #bdebd2; font-size: .95em; }
 .stat-card-link:hover { border-color: #3c5549; background: #171d1b; }
 .stat-card-link:focus-visible { outline: 2px solid rgba(52, 211, 153, .55); outline-offset: 3px; }
 .today-edit-hint { display: inline-flex; align-items: center; gap: 4px; margin-left: 5px; color: #789b88; font-size: 9px; font-weight: 500; opacity: .8; }
+
+
+.punch-in-edit-form { display: flex; align-items: end; flex-wrap: wrap; gap: 8px; margin-top: 9px; }
+.punch-in-edit-form label { display: grid; gap: 5px; color: #8996a1; font-size: 9px; }
+.punch-in-edit-form input { width: 220px; min-height: 36px; padding: 0 9px; border: 1px solid #333e48; border-radius: 8px; color: var(--text); background: #0f1317; }
+.punch-in-edit-form input:focus { border-color: #4cae85; outline: none; box-shadow: 0 0 0 3px rgba(52, 211, 153, .09); }
+@media (max-width: 680px) {
+  .punch-in-edit-form label, .punch-in-edit-form input { width: 100%; }
+  .punch-in-edit-form button { flex: 1 1 100%; }
+}

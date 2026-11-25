@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { AlertCircle, ArrowLeft, ArrowRight, CalendarDays, Clock3, PencilLine } from "lucide-react";
 import { BreakEditForm } from "@/components/break-edit-form";
 import { PunchOutEditForm } from "@/components/punch-out-edit-form";
+import { PunchInEditForm } from "@/components/punch-in-edit-form";
 import { HistoryDayCard } from "@/components/history-day-card";
 import { getHistoryPage, getProfileAndUser } from "@/lib/data";
 import { calculateSessionTime, dateKeyForInput, formatDateTimeInput, formatDuration } from "@/lib/time";
@@ -70,6 +71,13 @@ export default async function HistoryPage({ searchParams }: { searchParams: Prom
                     <div><span>Net work</span><strong>{formatDuration(result.netWorkMs)}</strong></div>
                     <div><span>Deducted breaks</span><strong>{formatDuration(result.deductedBreakMs)}</strong></div>
                   </div>
+                  {session.clock_out_at && (
+                    <details className="edit-punch-out">
+                      <summary><PencilLine size={14} /> Edit punch in time</summary>
+                      <PunchInEditForm sessionId={session.id} clockInLocal={formatDateTimeInput(session.clock_in_at, profile.time_zone)} />
+                      <small>Correcting the punch-in time recalculates net working time. Recorded breaks and the 15-minute deduction rule remain unchanged.</small>
+                    </details>
+                  )}
                   {session.clock_out_at && (
                     <details className="edit-punch-out">
                       <summary><PencilLine size={14} /> Edit punch out time</summary>

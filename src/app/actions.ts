@@ -245,3 +245,33 @@ export async function editPunchOutAction(formData: FormData) {
   revalidatePath("/reports");
   redirect("/history?saved=1");
 }
+
+
+export async function editPunchInAction(formData: FormData) {
+  const sessionId = z.string().uuid().safeParse(field(formData, "session_id"));
+  if (!sessionId.success) redirect("/history?error=The%20work%20session%20could%20not%20be%20identified.");
+  const clockInLocal = field(formData, "clock_in_local");
+  const { supabase, profile } = await getProfileAndUser();
+  let clockInAt: string;
+  try {
+    clockInAt = new Date(localDateTimeToEpoch(clockInLocal, profile.time_zone)).toISOString();
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Enter a valid local timestamp.";
+    redirect(`/history?error=${encodeURIComponent(message)}`);
+  }
+  let error: { message: string } | null = null;
+  try {
+    const result = await supabase.rpc("edit_session_punch_in", {
+      p_session_id: sessionId.data,
+      p_clock_in_at: clockInAt,
+    });
+    error = result.error;
+  } catch {
+    redirect("/history?error=We%20could%20not%20confirm%20the%20punch-in%20correction.%20Reload%20history%20to%20check%20the%20saved%20timestamp.");
+  }
+  if (error) redirect(`/history?error=${encodeURIComponent(actionError(error))}`);
+  revalidatePath("/dashboard");
+  revalidatePath("/history");
+  revalidatePath("/reports");
+  redirect("/history?saved=1");
+}
