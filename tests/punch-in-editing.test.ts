@@ -47,3 +47,25 @@ test("moving punch-in later reduces net working time by the exact adjustment", (
   const original = calculateSessionTime(completedSession(CLOCK_IN_ORIGINAL), NOW);
   assert.equal(original.netWorkMs - later.netWorkMs, 10 * 60_000);
 });
+
+test("correcting an ongoing session's punch-in recalculates live net work without closing it", () => {
+  const active = (clockInAt: string): WorkSession => ({ clock_in_at: clockInAt, clock_out_at: null, breaks: [] });
+  const original = calculateSessionTime(active(CLOCK_IN_ORIGINAL), NOW);
+  const corrected = calculateSessionTime(active(CLOCK_IN_CORRECTED), NOW);
+
+  assert.equal(corrected.netWorkMs - original.netWorkMs, 19 * 60_000);
+  assert.equal(active(CLOCK_IN_CORRECTED).clock_out_at, null);
+});
+
+test("ongoing session punch-in correction preserves the 15-minute break threshold", () => {
+  const breaks: WorkSession["breaks"] = [
+    { id: "short-active", break_start_at: `${DAY}T12:00:00.000Z`, break_end_at: `${DAY}T12:10:00.000Z` },
+    { id: "long-active", break_start_at: `${DAY}T13:00:00.000Z`, break_end_at: null },
+  ];
+  const original = calculateSessionTime({ clock_in_at: CLOCK_IN_ORIGINAL, clock_out_at: null, breaks }, NOW);
+  const corrected = calculateSessionTime({ clock_in_at: CLOCK_IN_CORRECTED, clock_out_at: null, breaks }, NOW);
+
+  assert.equal(original.deductedBreakMs, 0);
+  assert.equal(corrected.deductedBreakMs, 0);
+  assert.equal(corrected.netWorkMs - original.netWorkMs, 19 * 60_000);
+});
