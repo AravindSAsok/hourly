@@ -41,3 +41,9 @@ test("punch-in correction does not change the 15-minute break deduction rule", (
   assert.equal(corrected.deductedBreakMs, 20 * 60_000);
   assert.equal(corrected.netWorkMs - original.netWorkMs, 19 * 60_000);
 });
+
+test("moving punch-in later reduces net working time by the exact adjustment", () => {
+  const later = calculateSessionTime(completedSession(`${DAY}T08:29:00.000Z`), NOW);
+  const original = calculateSessionTime(completedSession(CLOCK_IN_ORIGINAL), NOW);
+  assert.equal(original.netWorkMs - later.netWorkMs, 10 * 60_000);
+});

@@ -10,7 +10,7 @@ create table public.session_punch_in_edits (
   new_clock_in_at timestamptz not null,
   edited_at timestamptz not null default clock_timestamp(),
   foreign key (session_id, user_id) references public.work_sessions(id, user_id) on delete cascade,
-  check (new_clock_in_at < previous_clock_in_at)
+  check (new_clock_in_at <> previous_clock_in_at)
 );
 
 alter table public.session_punch_in_edits enable row level security;
@@ -65,6 +65,10 @@ begin
 
   if p_clock_in_at > v_now then
     raise exception 'Punch-in cannot be in the future.';
+  end if;
+
+  if p_clock_in_at = v_session.clock_in_at then
+    raise exception 'Choose a different punch-in time.';
   end if;
 
   if exists (
